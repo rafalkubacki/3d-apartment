@@ -6,6 +6,13 @@ import { Sky } from "three/addons/objects/Sky.js";
 import { GUI } from "three/addons/libs/lil-gui.module.min.js";
 import { ConvexGeometry } from "three/addons/geometries/ConvexGeometry.js";
 import * as BufferGeometryUtils from "three/addons/utils/BufferGeometryUtils.js";
+import { createLights } from "./components/lights";
+import { createGround } from "./components/ground";
+import { createSky } from "./components/sky";
+import { createBuildings } from "./components/buildings";
+import { createGrid } from "./components/grid";
+import { createCube } from "./components/cube";
+import { createUi } from "./components/ui";
 
 // SETTINGS
 const settings = {
@@ -26,19 +33,16 @@ const settings = {
 
 let selectedFloor = null;
 
-const mDimensions = {
-  source: "park/scene.gltf",
-  height: 85,
-  radius: 145,
-  rotate: 0,
+export const colors = {
+  background: new THREE.Color().setHSL(0.6, 0, 1),
+  hemi: new THREE.Color().setHSL(0.6, 1, 0.6),
+  hemiGround: new THREE.Color().setHSL(0.095, 1, 0.75),
+  dirLight: new THREE.Color().setHSL(0.1, 1, 0.95),
+  buildings: new THREE.Color(0xbdc3c7),
+  fog: new THREE.Color(0xffffff),
 };
 
-// const mDimensions = {
-//   source: "chicago/scene.gltf",
-//   height: 85,
-//   radius: 145,
-//   rotate: 0,
-// };
+export const mDimensions = window.apartment360;
 
 const floors = [
   {
@@ -184,25 +188,40 @@ const floors = [
 ];
 
 function init() {
-  // SCENE
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0xffffff);
-  scene.fog = new THREE.FogExp2(0x888888, mDimensions.radius * 0.000025);
+  scene.background = colors.background;
+  scene.fog = new THREE.Fog(colors.fog, 1, mDimensions.radius * 3);
+
+  const { hemiLight, hemiLightHelper, dirLight, dirLightHelper } =
+    createLights();
+  const { ground } = createGround();
+
+  const { buildings } = createBuildings();
+  // const { grid } = createGrid();
+  // const { cube } = createCube();
+  const { sky } = createSky();
+
+  createUi();
+
+  scene.add(
+    hemiLight,
+    hemiLightHelper,
+    dirLight,
+    dirLightHelper,
+    ground,
+    // grid,
+    // cube,
+    buildings,
+    sky
+  );
 
   // RENDERER
   const renderer = new THREE.WebGLRenderer({
-    alpha: true,
     antialias: true,
   });
   renderer.setPixelRatio(window.devicePixelRatio);
   renderer.setSize(window.innerWidth, window.innerHeight);
-  renderer.setClearColor(new THREE.Color(0xffffff));
-  renderer.gammaOutput = true;
-  renderer.gammaFactor = 2.2;
   renderer.shadowMap.enabled = true;
-  renderer.useLegacyLights = false;
-  renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 0.75;
   document.body.appendChild(renderer.domElement);
 
   // CAMERA
@@ -221,8 +240,8 @@ function init() {
 
   // CONTROLS
   const controls = new OrbitControls(camera, renderer.domElement);
-  controls.maxDistance = mDimensions.radius;
-  controls.minDistance = mDimensions.radius / 2;
+  controls.maxDistance = mDimensions.radius * 1.25;
+  controls.minDistance = mDimensions.radius * 0.5;
   controls.maxPolarAngle = Math.PI / 2;
 
   if (settings.helpers) {
@@ -230,28 +249,6 @@ function init() {
   }
 
   // CAMERA CONTROLS
-  const btnString = `
-  <div class="navigation">
-    <div class="navigation__block">
-      <span class="navigation__label">Camera:</span>
-      <button id="front-camera">Front</button>
-      <button id="right-camera">Right</button>
-      <button id="back-camera">Back</button>
-      <button id="left-camera">Left</button>
-      <span class="navigation__label">Time:</span>
-      <button id="day-time">Day</button>
-      <button id="night-time">Night</button>
-    </div>
-    <div class="navigation__block">
-      <span class="navigation__label">Selected floor:</span>
-      <span class="navigation__number" id="selected-floor">-</span>
-      <span class="navigation__label">Available apartments:</span>
-      <span class="navigation__number" id="available-apartments">-</span>
-    </div>
-  </div>
-  `;
-  document.body.insertAdjacentHTML("beforeend", btnString);
-
   document.body.addEventListener("click", (e) => {
     e.preventDefault();
     if (!e.target.id) return false;
@@ -322,7 +319,6 @@ function points() {
   for (let i = 0; i < positionAttribute.count; i++) {
     const vertex = new THREE.Vector3();
     vertex.fromBufferAttribute(positionAttribute, i);
-    console.log(positionAttribute);
     vertices.push(vertex);
   }
 
@@ -348,46 +344,6 @@ function points() {
   //
 }
 
-// GROUND
-function displayGround() {
-  const groundMaterial = new THREE.MeshLambertMaterial({
-    color: 0xd1d8e0,
-  });
-  const groundGeometry = new THREE.BoxGeometry(
-    mDimensions.radius * 2,
-    2,
-    mDimensions.radius * 2
-  );
-
-  const ground = new THREE.Mesh(groundGeometry, groundMaterial);
-  ground.position.y = -1.1;
-  ground.receiveShadow = true;
-  scene.add(ground);
-}
-if (settings.ground) displayGround();
-
-// CUBE
-function displayCube() {
-  const groundMaterial = new THREE.MeshBasicMaterial({
-    color: 0x161616,
-  });
-
-  groundMaterial.transparent = true;
-  groundMaterial.opacity = 0.5;
-
-  const groundGeometry = new THREE.BoxGeometry(
-    mDimensions.radius,
-    mDimensions.height,
-    mDimensions.radius
-  );
-
-  const ground = new THREE.Mesh(groundGeometry, groundMaterial);
-  ground.position.y = mDimensions.height * 0.5;
-  ground.receiveShadow = true;
-  scene.add(ground);
-}
-if (settings.cube) displayCube();
-
 function displayFloors() {
   const clickers = [];
 
@@ -406,7 +362,6 @@ function displayFloors() {
       let floorPoints = [];
 
       if (key > 0) {
-        console.log(y);
         y = y + floors[key - 1].height;
       }
 
@@ -448,7 +403,6 @@ function displayFloors() {
       const mesh = new THREE.Mesh(geometry, material);
       mesh.rotation.x = Math.PI * 0.5;
       mesh.position.y = y + floor.height;
-      console.log(mesh);
       clickers[key] = mesh;
 
       scene.add(clickers[key]);
@@ -514,125 +468,27 @@ function onClick(event) {
 }
 renderer.domElement.addEventListener("click", onClick, false);
 
-// SKY
-function displaySky() {
-  const sky = new Sky();
-  sky.scale.setScalar(mDimensions.radius * 2);
-  scene.add(sky);
-
-  const sun = new THREE.Vector3();
-
-  const effectController = {
-    turbidity: 20,
-    rayleigh: 0.7,
-    mieCoefficient: 0,
-    mieDirectionalG: 0.7,
-    elevation: 40,
-    azimuth: 0,
-    exposure: renderer.toneMappingExposure,
-  };
-
-  function guiChanged() {
-    const uniforms = sky.material.uniforms;
-    uniforms["turbidity"].value = effectController.turbidity;
-    uniforms["rayleigh"].value = effectController.rayleigh;
-    uniforms["mieCoefficient"].value = effectController.mieCoefficient;
-    uniforms["mieDirectionalG"].value = effectController.mieDirectionalG;
-
-    const phi = THREE.MathUtils.degToRad(90 - effectController.elevation);
-    const theta = THREE.MathUtils.degToRad(effectController.azimuth);
-
-    sun.setFromSphericalCoords(1, phi, theta);
-
-    uniforms["sunPosition"].value.copy(sun);
-
-    renderer.toneMappingExposure = effectController.exposure;
-    renderer.render(scene, camera);
-  }
-
-  if (settings.helpers) {
-    const gui = new GUI();
-
-    gui.add(effectController, "turbidity", 0.0, 20.0, 0.1).onChange(guiChanged);
-    gui.add(effectController, "rayleigh", 0.0, 4, 0.001).onChange(guiChanged);
-    gui
-      .add(effectController, "mieCoefficient", 0.0, 0.1, 0.001)
-      .onChange(guiChanged);
-    gui
-      .add(effectController, "mieDirectionalG", 0.0, 1, 0.001)
-      .onChange(guiChanged);
-    gui.add(effectController, "elevation", 0, 90, 0.1).onChange(guiChanged);
-    gui.add(effectController, "azimuth", -180, 180, 0.1).onChange(guiChanged);
-    gui.add(effectController, "exposure", 0, 1, 0.0001).onChange(guiChanged);
-  }
-
-  guiChanged();
-}
-if (settings.sky) displaySky();
-
-function displayGrid() {
-  const grid = new THREE.GridHelper(mDimensions.radius * 2, 10);
-  grid.material.opacity = 0.2;
-  grid.material.depthWrite = false;
-  grid.material.transparent = true;
-  scene.add(grid);
-}
-if (settings.grid) displayGrid();
-
-function displayAmbient() {
-  const ambientLight = new THREE.AmbientLight(0xffffff, 1);
-  scene.add(ambientLight);
-}
-if (settings.ambient) displayAmbient();
-
-function displaySpotlight() {
-  const spotLight = new THREE.SpotLight(0xffeec6, 0.5);
-  spotLight.position.set(0, mDimensions.height * 1.5, mDimensions.radius);
-  spotLight.angle = 1;
-  spotLight.penumbra = 0.01;
-  spotLight.decay = 0.1;
-  spotLight.distance = mDimensions.radius * 2;
-  spotLight.castShadow = true;
-  scene.add(spotLight);
-
-  spotLight.target.position.set(0, 0, 0);
-  scene.add(spotLight.target);
-
-  if (settings.helpers) {
-    const spotLightHelper = new THREE.SpotLightHelper(spotLight);
-    scene.add(spotLightHelper);
-  }
-}
-if (settings.spotlight) displaySpotlight();
-
-function displayDirectionalLight() {
-  const light = new THREE.DirectionalLight(0xc9d3e0, 1);
-  light.position.x = 0;
-  light.position.y = mDimensions.height * 0.75;
-  light.position.z = mDimensions.radius;
-  scene.add(light);
-
-  if (settings.helpers) {
-    const helper = new THREE.DirectionalLightHelper(light, 5);
-    scene.add(helper);
-  }
-}
-if (settings.directional) displayDirectionalLight();
-
 function displayModel() {
   const loader = new GLTFLoader();
   loader.load(
     mDimensions.source,
     function (gltf) {
-      const model = gltf.scene.children[0]; // for sketchfab
-      model.rotation.z = Math.PI;
+      const model =
+        gltf.scene.children.length > 0 ? gltf.scene.children[0] : gltf.scene;
+      model.rotation.z = mDimensions.rotate;
+
       var box = new THREE.Box3().setFromObject(model);
       var center = new THREE.Vector3();
       box.getCenter(center);
       model.position.sub(center);
       model.position.y = 0;
-      model.castShadow = true;
-      model.receiveShadow = true;
+      model.traverse((n) => {
+        if (n.isMesh) {
+          n.castShadow = true;
+          n.receiveShadow = true;
+        }
+      });
+
       scene.add(model);
     },
     undefined,
@@ -641,7 +497,7 @@ function displayModel() {
     }
   );
 }
-if (settings.model) displayModel();
+displayModel();
 
 function animate() {
   requestAnimationFrame(animate);

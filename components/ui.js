@@ -1,3 +1,6 @@
+import * as THREE from "three";
+import { mDimensions, colors, camera, settings, sky } from "../main";
+
 export function createUi() {
   const btnString = `
     <div class="navigation">
@@ -21,3 +24,44 @@ export function createUi() {
     `;
   document.body.insertAdjacentHTML("beforeend", btnString);
 }
+
+// CAMERA CONTROLS
+document.body.addEventListener("click", (e) => {
+  e.preventDefault();
+
+  if (!e.target.id) return false;
+
+  switch (e.target.id) {
+    case "front-camera":
+      camera.position.set(
+        settings.cameraAngle,
+        settings.cameraHeight,
+        settings.cameraDistance
+      );
+      break;
+
+    case "right-camera":
+      camera.position.set(
+        settings.cameraDistance,
+        settings.cameraHeight,
+        -settings.cameraAngle
+      );
+      break;
+
+    case "back-camera":
+      camera.position.set(
+        -settings.cameraAngle,
+        settings.cameraHeight,
+        -settings.cameraDistance
+      );
+      break;
+
+    case "left-camera":
+      camera.position.set(
+        -settings.cameraDistance,
+        settings.cameraHeight,
+        settings.cameraAngle
+      );
+      break;
+  }
+});

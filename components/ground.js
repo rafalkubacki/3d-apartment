@@ -1,13 +1,14 @@
 import * as THREE from "three";
-import { mDimensions } from "../main";
+import { mDimensions, colors } from "../main";
 
 export function createGround() {
-  const groundGeo = new THREE.PlaneGeometry(10000, 10000);
-  const groundMat = new THREE.MeshLambertMaterial({ color: 0xffffff });
-  groundMat.color.setHSL(0.095, 1, 0.75);
-
+  const groundGeo = new THREE.PlaneGeometry(
+    mDimensions.radius * 4,
+    mDimensions.radius * 4
+  );
+  const groundMat = new THREE.MeshLambertMaterial({ color: colors.buildings });
   const ground = new THREE.Mesh(groundGeo, groundMat);
-  ground.position.y = -25;
+  ground.position.y = mDimensions.heightFix;
   ground.rotation.x = -Math.PI / 2;
   ground.receiveShadow = true;
 

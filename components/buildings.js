@@ -4,7 +4,7 @@ import { mDimensions, colors } from "../main";
 export function createBuildings() {
   const buildings = new THREE.Group();
 
-  const groundMaterial = new THREE.MeshLambertMaterial({
+  const groundMaterial = new THREE.MeshStandardMaterial({
     color: colors.buildings,
   });
 
@@ -38,7 +38,7 @@ export function createBuildings() {
       mDimensions.height * 1,
       mDimensions.radius * 0.25,
       mDimensions.radius * -0.5,
-      mDimensions.height * 0.375,
+      mDimensions.height * 0.5,
       mDimensions.radius * 0.5,
     ],
     [
@@ -65,6 +65,7 @@ export function createBuildings() {
 
     buildings.add(ground);
     buildings.rotation.y = Math.PI;
+    buildings.position.y = mDimensions.heightFix;
   });
 
   return { buildings };

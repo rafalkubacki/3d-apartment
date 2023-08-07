@@ -1,11 +1,5 @@
 import * as THREE from "three";
-import {
-  mDimensions,
-  colors,
-  dirLight,
-  hemiLight,
-  dirLightHelper,
-} from "../main";
+import { mDimensions, colors, dirLight, topLight, hemiLight } from "../main";
 
 export function createSky() {
   const vertexShader = document.getElementById("vertexShader").textContent;
@@ -47,27 +41,23 @@ export function createSky() {
       case "day-time":
         sky.material = skyDay;
         sky.material.needsUpdate = true;
-        hemiLight.intensity = 3;
-        dirLight.intensity = 6;
+        dirLight.intensity = 3;
         dirLight.position.set(
-          mDimensions.radius * 0.5,
-          mDimensions.height * 1.5,
-          mDimensions.radius * 0.5
+          mDimensions.radius * 0.25,
+          mDimensions.height * 0.75,
+          mDimensions.radius
         );
-        dirLightHelper.update();
         break;
 
       case "night-time":
         sky.material = skyNight;
         sky.material.needsUpdate = true;
-        hemiLight.intensity = 1;
         dirLight.intensity = 2;
         dirLight.position.set(
-          -mDimensions.radius * 0.5,
-          mDimensions.height * 1.5,
-          mDimensions.radius * 0.5
+          -mDimensions.radius * 0.25,
+          mDimensions.height * 0.75,
+          mDimensions.radius
         );
-        dirLightHelper.update();
         break;
     }
   });

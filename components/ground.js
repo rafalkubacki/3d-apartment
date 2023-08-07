@@ -8,7 +8,7 @@ export function createGround() {
   );
   const groundMat = new THREE.MeshLambertMaterial({ color: colors.buildings });
   const ground = new THREE.Mesh(groundGeo, groundMat);
-  ground.position.y = mDimensions.heightFix;
+  ground.position.y = 0;
   ground.rotation.x = -Math.PI / 2;
   ground.receiveShadow = true;
 

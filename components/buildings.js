@@ -65,7 +65,7 @@ export function createBuildings() {
 
     buildings.add(ground);
     buildings.rotation.y = Math.PI;
-    buildings.position.y = mDimensions.heightFix;
+    buildings.position.y = 0;
   });
 
   return { buildings };

@@ -13,6 +13,7 @@ import { createBuildings } from "./components/buildings";
 import { createGrid } from "./components/grid";
 import { createCube } from "./components/cube";
 import { createUi } from "./components/ui";
+import { createWater } from "./components/water";
 
 // SETTINGS
 export const mDimensions = window.apartment360;
@@ -33,15 +34,18 @@ let selectedFloor = null;
 
 export const colors = {
   background: new THREE.Color(0x636e72), // Doesnt change anything
-  hemi: new THREE.Color(0x4bcffa), // Top sky color
+  hemi: new THREE.Color(0xbde0fe), // Top sky color
   hemiNight: new THREE.Color(0x485460),
   hemiGround: new THREE.Color(0x636e72), // Bottom shadow color
   hemiGroundNight: new THREE.Color(0x1e272e),
-  dirLight: new THREE.Color(0xffffff), // Buildings color correction
+  topLight: new THREE.Color(0xdddddd), // Additional top light
+  dirLight: new THREE.Color(0xdddddd), // Buildings color correction
   dirLightNight: new THREE.Color(0xd2dae2),
   buildings: new THREE.Color(0x636e72), // Flat building walls
-  fog: new THREE.Color(0xdfe6e9),
+  fog: new THREE.Color(0xdfe6e9), // Lower sky
   floor: new THREE.Color(0x10ac84),
+  windows: new THREE.Color(0x1b263b),
+  water: new THREE.Color(0xa2d2ff),
 };
 
 const floors = window.floors;
@@ -60,24 +64,45 @@ export const camera = new THREE.PerspectiveCamera(
 scene.background = colors.background;
 scene.fog = new THREE.Fog(colors.fog, 1, mDimensions.radius * 4);
 
-export const { hemiLight, hemiLightHelper, dirLight, dirLightHelper } =
-  createLights();
+// export let cubeCamera, cubeRenderTarget;
+
+// cubeRenderTarget = new THREE.WebGLCubeRenderTarget(256);
+// cubeRenderTarget.texture.type = THREE.HalfFloatType;
+
+// cubeCamera = new THREE.CubeCamera(1, mDimensions.radius * 2, cubeRenderTarget);
+// cubeCamera.position.copy(camera.position);
+
+const windowMaterial = new THREE.MeshStandardMaterial({
+  color: colors.windows,
+  // envMap: cubeRenderTarget.texture,
+  roughness: 0.5,
+  metalness: 1,
+  transparent: true,
+  opacity: 0.6,
+});
+
+export const {
+  hemiLight,
+  hemiLightHelper,
+  topLight,
+  topLightHelper,
+  dirLight,
+  dirLightHelper,
+} = createLights();
 const { ground } = createGround();
 
 const { buildings } = createBuildings();
+const { waters } = createWater();
+
 export const { sky } = createSky();
 
 createUi();
 
-scene.add(
-  hemiLight,
-  hemiLightHelper,
-  dirLight,
-  dirLightHelper,
-  ground,
-  buildings,
-  sky
-);
+scene.add(hemiLight, topLight, dirLight, ground, buildings, waters, sky);
+
+if (mDimensions.helpers === true) {
+  scene.add(hemiLightHelper, topLightHelper, dirLightHelper);
+}
 
 // RENDERER
 renderer.setPixelRatio(window.devicePixelRatio);
@@ -104,61 +129,11 @@ const textureLoader = new THREE.TextureLoader();
 const pointTexture = textureLoader.load("disc.png");
 pointTexture.colorSpace = THREE.SRGBColorSpace;
 const pointsMaterial = new THREE.PointsMaterial({
-  color: 0x0080ff,
+  color: 0xff0000,
   map: pointTexture,
-  size: 2,
+  size: 10,
   alphaTest: 0.5,
 });
-
-let group;
-points();
-
-function points() {
-  group = new THREE.Group();
-  scene.add(group);
-
-  // points
-
-  let dodecahedronGeometry = new THREE.DodecahedronGeometry(100);
-
-  // if normal and uv attributes are not removed, mergeVertices() can't consolidate indentical vertices with different normal/uv data
-
-  dodecahedronGeometry.deleteAttribute("normal");
-  dodecahedronGeometry.deleteAttribute("uv");
-
-  dodecahedronGeometry =
-    BufferGeometryUtils.mergeVertices(dodecahedronGeometry);
-
-  const vertices = [];
-  const positionAttribute = dodecahedronGeometry.getAttribute("position");
-
-  for (let i = 0; i < positionAttribute.count; i++) {
-    const vertex = new THREE.Vector3();
-    vertex.fromBufferAttribute(positionAttribute, i);
-    vertices.push(vertex);
-  }
-
-  const pointsGeometry = new THREE.BufferGeometry().setFromPoints(vertices);
-
-  const points = new THREE.Points(pointsGeometry, pointsMaterial);
-  group.add(points);
-
-  // convex hull
-
-  const meshMaterial = new THREE.MeshLambertMaterial({
-    color: 0xffffff,
-    opacity: 0.5,
-    side: THREE.DoubleSide,
-    transparent: true,
-  });
-
-  const meshGeometry = new ConvexGeometry(vertices);
-
-  const mesh = new THREE.Mesh(meshGeometry, meshMaterial);
-  group.add(mesh);
-
-  //
-}
 
 function displayFloors() {
   const clickers = [];
@@ -169,7 +144,7 @@ function displayFloors() {
     transparent: true,
   });
 
-  let y = 121;
+  let y = mDimensions.floorStart;
 
   // FLOORS
   floors.forEach((floor, key) => {
@@ -233,6 +208,8 @@ const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
 
 function onClick(event) {
+  if (mDimensions.helpers !== true) return false;
+
   event.preventDefault();
 
   mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
@@ -246,7 +223,10 @@ function onClick(event) {
     const object = intersects[0];
 
     const p = object.point;
-    console.log(`[${p.x.toFixed(4)}, ${p.y.toFixed(4)}, ${p.z.toFixed(4)}],`);
+
+    console.log(`[${p.x.toFixed(2)}, ${p.y.toFixed(2)}, ${p.z.toFixed(2)}],`);
+    console.log(object);
+
     const vertices = [];
     vertices.push(p.x, p.y, p.z);
 
@@ -255,12 +235,25 @@ function onClick(event) {
       "position",
       new THREE.Float32BufferAttribute(vertices, 3)
     );
-    const material = new THREE.PointsMaterial({ color: 0xff0000 });
-    const points = new THREE.Points(geometry, material);
+    const points = new THREE.Points(geometry, pointsMaterial);
     scene.add(points);
   }
 }
 renderer.domElement.addEventListener("click", onClick, false);
+
+function clearSelectedFloor() {
+  if (selectedFloor) {
+    document.body.style.cursor = null;
+    document.getElementById("selected-floor").textContent = "-";
+    document.getElementById("available-apartments").textContent = "-";
+
+    const prevSelected = scene.getObjectByName(selectedFloor);
+
+    if (prevSelected) {
+      prevSelected.material.opacity = 0;
+    }
+  }
+}
 
 function onHover(event) {
   event.preventDefault();
@@ -272,52 +265,40 @@ function onHover(event) {
 
   var intersects = raycaster.intersectObject(scene, true);
 
-  document.body.style.cursor = null;
-
-  if (intersects.length > 0) {
-    const object = intersects[0];
-
-    if (!object) return false;
-    if (!object.object) return false;
-    if (!object.object.name.includes("floor-")) return false;
-
-    document.body.style.cursor = "pointer";
-
-    const name = object.object.name;
-
-    if (selectedFloor) {
-      var obj = scene.getObjectByName(selectedFloor);
-      obj.material.opacity = 0;
-    }
-
-    object.object.material.opacity =
-      object.object.material.opacity == 0 ? settings.floorOpacity : 0;
-
-    const floorNumber = Number(name.split("-").pop());
-    selectedFloor = name;
-    document.getElementById("selected-floor").textContent = floorNumber;
-    document.getElementById("available-apartments").textContent =
-      floors[floorNumber].apartments.available;
+  if (intersects.length == 0) {
+    clearSelectedFloor();
+    return false;
   }
+
+  const object = intersects[0];
+
+  if (!object?.object?.name?.includes("floor-")) {
+    clearSelectedFloor();
+    return false;
+  }
+
+  const name = object.object.name;
+
+  if (selectedFloor && selectedFloor === name) {
+    return false;
+  }
+
+  if (selectedFloor && selectedFloor != name) {
+    clearSelectedFloor();
+  }
+
+  document.body.style.cursor = "pointer";
+  object.object.material.opacity = settings.floorOpacity;
+
+  const floorNumber = Number(name.split("-").pop());
+
+  document.getElementById("selected-floor").textContent = floorNumber;
+  document.getElementById("available-apartments").textContent =
+    floors[floorNumber].apartments.available;
+
+  selectedFloor = name;
 }
 renderer.domElement.addEventListener("mousemove", onHover, false);
-
-let cubeCamera, cubeRenderTarget, material;
-
-cubeRenderTarget = new THREE.WebGLCubeRenderTarget(256);
-cubeRenderTarget.texture.type = THREE.HalfFloatType;
-
-cubeCamera = new THREE.CubeCamera(1, mDimensions.radius * 2, cubeRenderTarget);
-cubeCamera.position.copy(camera.position);
-
-material = new THREE.MeshStandardMaterial({
-  color: colors.hemiNight,
-  envMap: cubeRenderTarget.texture,
-  roughness: 0.05,
-  metalness: 1,
-  transparent: true,
-  opacity: 0.9,
-});
 
 let model;
 
@@ -334,7 +315,9 @@ function displayModel() {
       var center = new THREE.Vector3();
       box.getCenter(center);
       model.position.sub(center);
-      model.position.y = 0;
+      model.position.y = mDimensions.placement.y;
+      model.position.x = model.position.x + mDimensions.placement.x;
+      model.position.z = model.position.z + mDimensions.placement.z;
 
       model.traverse((n) => {
         if (n.isMesh) {
@@ -342,7 +325,11 @@ function displayModel() {
           n.receiveShadow = true;
 
           if (n.name.includes("vidra") || n.name.includes("vidro")) {
-            n.material = material;
+            n.material = windowMaterial;
+          }
+
+          if (n.name.includes("car")) {
+            n.receiveShadow = false;
           }
         }
       });
@@ -362,7 +349,7 @@ function animate() {
 
   camera.lookAt(0, mDimensions.height * 0.5, 0);
 
-  cubeCamera.update(renderer, scene);
+  // cubeCamera.update(renderer, scene);
   renderer.render(scene, camera);
 }
 animate();

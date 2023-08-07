@@ -28,6 +28,7 @@ export const settings = {
   cameraAngle: mDimensions.radius * 0.25,
   cameraHeight: mDimensions.height * 0.25,
   cameraDistance: mDimensions.radius * 0.75,
+  helpers: window.location && window.location.hostname == "localhost",
 };
 
 let selectedFloor = null;
@@ -100,7 +101,7 @@ createUi();
 
 scene.add(hemiLight, topLight, dirLight, ground, buildings, waters, sky);
 
-if (mDimensions.helpers === true) {
+if (settings.helpers === true) {
   scene.add(hemiLightHelper, topLightHelper, dirLightHelper);
 }
 
@@ -208,7 +209,7 @@ const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
 
 function onClick(event) {
-  if (mDimensions.helpers !== true) return false;
+  if (settings.helpers !== true) return false;
 
   event.preventDefault();
 
